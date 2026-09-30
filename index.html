@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Atelier Studio ✨ [v4.3 Full Debug & Features]</title>
+  <title>Atelier Studio ✨</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -400,12 +400,12 @@
       box-shadow: 0 10px 30px rgba(0,0,0,0.2);
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
     .debug-select {
       background: rgba(255,255,255,0.7);
       border: 1px solid #ccc;
-      padding: 4px 8px;
+      padding: 4px 6px;
       border-radius: 8px;
       font-size: 11px;
       font-weight: 700;
@@ -947,19 +947,28 @@
 
   <!-- ДЕБАГ ПАНЕЛЬ ДЛЯ ТЕСТУВАННЯ -->
   <div class="debug-float-panel">
-    <span style="font-size:10px; font-weight:800; text-transform:uppercase;">🧪 Тест:</span>
-    <select class="debug-select" id="debug-time-select" onchange="overrideTime(this.value)">
-      <option value="auto">⏳ Авточас</option>
-      <option value="9">🌅 Ранок (09:00)</option>
-      <option value="13">☀️ День (13:00)</option>
-      <option value="17">🌇 Полудень (17:00)</option>
-      <option value="22">🌙 Ніч (22:00)</option>
+    <span style="font-size:10px; font-weight:800; text-transform:uppercase;">🧪</span>
+    <select class="debug-select" id="debug-time-select" onchange="overrideTime(this.value)" title="Час">
+      <option value="auto">⏳ Час</option>
+      <option value="9">🌅 Ранок (09)</option>
+      <option value="13">☀️ День (13)</option>
+      <option value="17">🌇 Полудень (17)</option>
+      <option value="22">🌙 Ніч (22)</option>
     </select>
-    <select class="debug-select" id="debug-weather-select" onchange="overrideWeather(this.value)">
-      <option value="auto">🌤️ Автопогода</option>
+    <select class="debug-select" id="debug-weather-select" onchange="overrideWeather(this.value)" title="Погода">
+      <option value="auto">🌤️ Погода</option>
       <option value="clear">☀️ Ясно</option>
+      <option value="cloudy">☁️ Похмуро</option>
       <option value="rain">🌧️ Дощ</option>
       <option value="snow">❄️ Сніг</option>
+    </select>
+    <select class="debug-select" id="debug-temp-select" onchange="overrideTemp(this.value)" title="Температура">
+      <option value="auto">🌡️ Авто</option>
+      <option value="22">+22°C</option>
+      <option value="16">+16°C</option>
+      <option value="10">+10°C</option>
+      <option value="0">0°C</option>
+      <option value="-5">-5°C</option>
     </select>
   </div>
 
@@ -1366,6 +1375,8 @@
 
     let debugTimeOverride = null;
     let debugWeatherOverride = null;
+    let debugTempOverride = null;
+    let realFetchedWeatherData = null;
 
     // Анімація часток (дощ / сніг)
     const canvas = document.getElementById('fx-canvas');
@@ -1439,12 +1450,25 @@
     function overrideWeather(val) {
       debugWeatherOverride = val === 'auto' ? null : val;
       if (debugWeatherOverride) {
-        currentWeatherType = debugWeatherOverride === 'rain' ? 'rain' : (debugWeatherOverride === 'snow' ? 'snow' : 'clear');
+        currentWeatherType = debugWeatherOverride === 'rain' ? 'rain' : (debugWeatherOverride === 'snow' ? 'snow' : (debugWeatherOverride === 'cloudy' ? 'cloudy' : 'clear'));
         initParticles(currentWeatherType);
-        setAtmosphereWithCrossfade(getCurrentTimeClass(), `weather-${debugWeatherOverride}`, getCurrentTimeLabel(), debugWeatherOverride);
+        setAtmosphereWithCrossfade(getCurrentTimeClass(), `weather-${debugWeatherOverride}`, getCurrentTimeLabel(), getWeatherLabelName(debugWeatherOverride));
+        if (realFetchedWeatherData) renderSmartWeather(realFetchedWeatherData);
       } else {
         initWeatherOnLoad();
       }
+    }
+
+    function overrideTemp(val) {
+      debugTempOverride = val === 'auto' ? null : parseInt(val, 10);
+      if (realFetchedWeatherData) renderSmartWeather(realFetchedWeatherData);
+    }
+
+    function getWeatherLabelName(type) {
+      if (type === 'rain') return 'Дощить';
+      if (type === 'snow') return 'Сніжить';
+      if (type === 'cloudy') return 'Похмуро';
+      return 'Ясно';
     }
 
     function getCurrentHour() {
@@ -1758,7 +1782,7 @@
       if (debugWeatherOverride) {
         weatherClass = `weather-${debugWeatherOverride}`;
         currentWeatherType = debugWeatherOverride;
-        weatherLabel = debugWeatherOverride === 'rain' ? 'Дощить' : (debugWeatherOverride === 'snow' ? 'Сніжить' : 'Ясно');
+        weatherLabel = getWeatherLabelName(debugWeatherOverride);
       } else {
         if ([71, 73, 75, 77, 85, 86].includes(weatherCode)) {
           weatherClass = 'weather-snow'; weatherLabel = 'Сніжить';
@@ -1768,6 +1792,7 @@
           currentWeatherType = 'rain';
         } else if ([1, 2, 3].includes(weatherCode)) {
           weatherClass = 'weather-cloudy'; weatherLabel = 'Похмуро';
+          currentWeatherType = 'cloudy';
         }
       }
 
@@ -1856,7 +1881,7 @@
     }
 
     function setRandomGreeting() {
-      const names = ['Сонце', 'Гарнюнько', 'Манюня', 'Діанка', 'Крихітко'];
+      const names = ['Сонце', 'Сонечко', 'Діанка', 'Крихітка', 'Діана', 'Гарнюнько'];
       const chosen = names[Math.floor(Math.random() * names.length)];
       document.getElementById('greeting-text').innerText = `Привіт, ${chosen} ✨`;
     }
@@ -1885,6 +1910,7 @@
           const res = await fetch(url, { cache: 'no-store' });
           if (res.ok) {
             const data = await res.json();
+            realFetchedWeatherData = data;
             renderSmartWeather(data);
           }
         } catch (e) {
@@ -1914,35 +1940,36 @@
     }
 
     function renderSmartWeather(data) {
+      realFetchedWeatherData = data;
       const tempEl = document.getElementById('w-temp');
       const iconEl = document.getElementById('w-icon');
       const insightsEl = document.getElementById('w-insights');
 
       const currentHour = getCurrentHour();
-      const realTemp = Math.round(data.current.temperature_2m);
-      const feelsLike = Math.round(data.current.apparent_temperature);
+      const realTemp = debugTempOverride !== null ? debugTempOverride : Math.round(data.current.temperature_2m);
+      const feelsLike = debugTempOverride !== null ? debugTempOverride : Math.round(data.current.apparent_temperature);
       currentOutdoorTemp = realTemp;
 
       if (tempEl) {
         tempEl.innerHTML = `${realTemp}°C <span style="font-size:14px; font-weight:600; opacity:0.75;">(відчувається як ${feelsLike}°C)</span>`;
       }
 
-      const code = data.current.weather_code;
+      const code = debugWeatherOverride ? (debugWeatherOverride === 'rain' ? 61 : (debugWeatherOverride === 'snow' ? 71 : (debugWeatherOverride === 'cloudy' ? 3 : 0))) : data.current.weather_code;
       applyDynamicAtmosphere(code);
 
       let cloudDesc = 'Ясно';
       let icon = '☀️';
 
-      if ([71, 73, 75, 77, 85, 86].includes(code)) {
+      if ([71, 73, 75, 77, 85, 86].includes(code) || currentWeatherType === 'snow') {
         cloudDesc = 'Сніжить';
         icon = '❄️';
       } else if ([1, 2].includes(code)) {
         cloudDesc = 'Мінлива хмарність';
         icon = '⛅';
-      } else if ([3].includes(code)) {
+      } else if ([3].includes(code) || currentWeatherType === 'cloudy') {
         cloudDesc = 'Хмарно';
         icon = '☁️';
-      } else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) {
+      } else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code) || currentWeatherType === 'rain') {
         cloudDesc = 'Дощить';
         icon = '🌧️';
       }
@@ -1972,7 +1999,7 @@
         }
       }
 
-      if (rainOrSnowHour !== -1) {
+      if (rainOrSnowHour !== -1 && currentWeatherType !== 'clear') {
         insightsHtml += `
           <div class="insight-item" style="color:var(--accent-theme-deep);">
             <span>🌧️</span>
