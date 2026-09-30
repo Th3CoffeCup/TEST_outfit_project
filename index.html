@@ -956,7 +956,7 @@
       <option value="22">🌙 Ніч (22)</option>
     </select>
     <select class="debug-select" id="debug-weather-select" onchange="overrideWeather(this.value)" title="Погода">
-      <option value="auto">🌤️ Погода</option>
+      <option value="auto">🌤️️ Погода</option>
       <option value="clear">☀️ Ясно</option>
       <option value="cloudy">☁️ Похмуро</option>
       <option value="rain">🌧️ Дощ</option>
@@ -989,16 +989,17 @@
         <p>Обери сьогоднішній настрій або зазирни у свою колекцію гардероба.</p>
       </div>
 
-      <div class="choice-card interactive-press" onclick="delayedNavigate(this, () => startFreshManualFlow())">
-        <div class="icon-bubble">🌸</div>
-        <h2>Я знаю, на що мій настрій</h2>
-        <p>Збери свій аутфіт власноруч: відкривай каталог та обирай найкращі поєднання.</p>
-      </div>
-
+      <!-- ЗМІНЕНО МІСЦЯМИ КНОПКИ -->
       <div class="choice-card interactive-press" onclick="delayedNavigate(this, () => goToQuizFlow())">
         <div class="icon-bubble">🎲</div>
         <h2>Не знаю, що вдягнути</h2>
         <p>Три швидких запитання про формат дня та погоду — гармонійний сет без вагань.</p>
+      </div>
+
+      <div class="choice-card interactive-press" onclick="delayedNavigate(this, () => startFreshManualFlow())">
+        <div class="icon-bubble">🌸</div>
+        <h2>Я знаю, на що мій настрій</h2>
+        <p>Збери свій аутфіт власноруч: відкривай каталог та обирай найкращі поєднання.</p>
       </div>
 
       <div class="choice-card interactive-press" style="background: var(--glass-gloss), rgba(255, 255, 255, 0.45);" onclick="delayedNavigate(this, () => goToWardrobeManager())">
@@ -1016,7 +1017,7 @@
 
       <div style="margin-top: 10px; display:flex; gap:8px;">
         <button class="btn btn-outline interactive-press" style="flex:1; font-size: 13.5px;" onclick="delayedNavigate(this, () => showFavorites())">
-          ❤️ Збережені (<span id="fav-count">0</span>)
+          ❤️️ Збережені (<span id="fav-count">0</span>)
         </button>
         <button class="btn btn-outline interactive-press" style="flex:1; font-size: 13.5px;" onclick="delayedNavigate(this, () => showHistoryLog())">
           📅 Історія образів
@@ -1321,6 +1322,8 @@
   </div>
 
   <script>
+    const OW_API_KEY = 'b4d529b97aa48a1bc650ca844ea6a0ce';
+
     const PALETTE = [
       { name: 'Чорний', hex: '#1c1b1a', isLight: false },
       { name: 'Білий', hex: '#ffffff', isLight: true },
@@ -1771,7 +1774,7 @@
       btn.classList.add('active');
     }
 
-    function applyDynamicAtmosphere(weatherCode = 0) {
+    function applyDynamicAtmosphere(weatherId = 800) {
       const timeClass = getCurrentTimeClass();
       const timeLabel = getCurrentTimeLabel();
 
@@ -1784,13 +1787,13 @@
         currentWeatherType = debugWeatherOverride;
         weatherLabel = getWeatherLabelName(debugWeatherOverride);
       } else {
-        if ([71, 73, 75, 77, 85, 86].includes(weatherCode)) {
-          weatherClass = 'weather-snow'; weatherLabel = 'Сніжить';
-          currentWeatherType = 'snow';
-        } else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(weatherCode)) {
+        if (weatherId >= 200 && weatherId < 600) {
           weatherClass = 'weather-rain'; weatherLabel = 'Дощить';
           currentWeatherType = 'rain';
-        } else if ([1, 2, 3].includes(weatherCode)) {
+        } else if (weatherId >= 600 && weatherId < 700) {
+          weatherClass = 'weather-snow'; weatherLabel = 'Сніжить';
+          currentWeatherType = 'snow';
+        } else if (weatherId > 800) {
           weatherClass = 'weather-cloudy'; weatherLabel = 'Похмуро';
           currentWeatherType = 'cloudy';
         }
@@ -1899,22 +1902,22 @@
       updateCounts();
     }
 
-    /* ПОГОДА */
+    /* ПОГОДА ВІД OPENWEATHERMAP */
     async function initWeatherOnLoad() {
       const queryWeather = async (lat, lon, cityName = 'Твоє місто') => {
         const locEl = document.getElementById('w-location');
         if (locEl) locEl.innerText = cityName;
 
         try {
-          const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,precipitation,weather_code&timezone=auto&models=best_match&_t=${Date.now()}`;
-          const res = await fetch(url, { cache: 'no-store' });
+          const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${OW_API_KEY}&lang=uk&_t=${Date.now()}`;
+          const res = await fetch(url);
           if (res.ok) {
             const data = await res.json();
             realFetchedWeatherData = data;
             renderSmartWeather(data);
           }
         } catch (e) {
-          applyDynamicAtmosphere(0);
+          applyDynamicAtmosphere(800);
         }
       };
 
@@ -1946,32 +1949,28 @@
       const insightsEl = document.getElementById('w-insights');
 
       const currentHour = getCurrentHour();
-      const realTemp = debugTempOverride !== null ? debugTempOverride : Math.round(data.current.temperature_2m);
-      const feelsLike = debugTempOverride !== null ? debugTempOverride : Math.round(data.current.apparent_temperature);
+      const realTemp = debugTempOverride !== null ? debugTempOverride : Math.round(data.main.temp);
+      const feelsLike = debugTempOverride !== null ? debugTempOverride : Math.round(data.main.feels_like);
       currentOutdoorTemp = realTemp;
 
       if (tempEl) {
         tempEl.innerHTML = `${realTemp}°C <span style="font-size:14px; font-weight:600; opacity:0.75;">(відчувається як ${feelsLike}°C)</span>`;
       }
 
-      const code = debugWeatherOverride ? (debugWeatherOverride === 'rain' ? 61 : (debugWeatherOverride === 'snow' ? 71 : (debugWeatherOverride === 'cloudy' ? 3 : 0))) : data.current.weather_code;
-      applyDynamicAtmosphere(code);
+      const weatherId = debugWeatherOverride ? (debugWeatherOverride === 'rain' ? 500 : (debugWeatherOverride === 'snow' ? 600 : (debugWeatherOverride === 'cloudy' ? 803 : 800))) : data.weather[0].id;
+      applyDynamicAtmosphere(weatherId);
 
-      let cloudDesc = 'Ясно';
+      let weatherDesc = data.weather[0].description || 'Ясно';
       let icon = '☀️';
 
-      if ([71, 73, 75, 77, 85, 86].includes(code) || currentWeatherType === 'snow') {
-        cloudDesc = 'Сніжить';
-        icon = '❄️';
-      } else if ([1, 2].includes(code)) {
-        cloudDesc = 'Мінлива хмарність';
-        icon = '⛅';
-      } else if ([3].includes(code) || currentWeatherType === 'cloudy') {
-        cloudDesc = 'Хмарно';
-        icon = '☁️';
-      } else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code) || currentWeatherType === 'rain') {
-        cloudDesc = 'Дощить';
+      if (weatherId >= 200 && weatherId < 600 || currentWeatherType === 'rain') {
         icon = '🌧️';
+      } else if (weatherId >= 600 && weatherId < 700 || currentWeatherType === 'snow') {
+        icon = '❄️';
+      } else if (weatherId > 800 || currentWeatherType === 'cloudy') {
+        icon = '☁️';
+      } else if (weatherId === 800) {
+        icon = '☀️';
       }
 
       if ((currentHour >= 21 || currentHour <= 5) && icon === '☀️') icon = '🌙';
@@ -1985,31 +1984,11 @@
             <span>🧥</span>
             <span>На вулиці холодно (<b>${realTemp}°C</b>). Обов'язково одягай <b>теплу куртку та термобілизну / колготки</b>!</span>
           </div>`;
-      }
-
-      let rainOrSnowHour = -1;
-      let precipName = 'опади';
-
-      for (let i = 0; i < 6; i++) {
-        const h = currentHour + i;
-        if (data.hourly.precipitation_probability[h] >= 40 || data.hourly.precipitation[h] > 0.2) {
-          rainOrSnowHour = h % 24;
-          precipName = currentWeatherType === 'snow' ? 'сніг' : 'дощ';
-          break;
-        }
-      }
-
-      if (rainOrSnowHour !== -1 && currentWeatherType !== 'clear') {
-        insightsHtml += `
-          <div class="insight-item" style="color:var(--accent-theme-deep);">
-            <span>🌧️</span>
-            <span>Увага: близько <b>${rainOrSnowHour}:00</b> можливий <b>${precipName}</b>. Будь готова!</span>
-          </div>`;
       } else {
         insightsHtml += `
           <div class="insight-item">
             <span>🌈</span>
-            <span>Опадів найближчим часом не очікується. Небо: ${cloudDesc.toLowerCase()}.</span>
+            <span>Погода стабільна. Стан неба: ${weatherDesc}.</span>
           </div>`;
       }
 
@@ -2744,7 +2723,7 @@
       renderWardrobe();
     }
 
-    applyDynamicAtmosphere(0);
+    applyDynamicAtmosphere(800);
     initWeatherOnLoad();
     setRandomGreeting();
     buildSwatches();
