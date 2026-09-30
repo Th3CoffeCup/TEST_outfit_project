@@ -1902,43 +1902,70 @@
       updateCounts();
     }
 
-    /* ПОГОДА ВІД OPENWEATHERMAP */
+   /* ПОГОДА ВІД OPENWEATHERMAP З ЗАХИСТОМ ВІД ЗАВИСАНЬ */
     async function initWeatherOnLoad() {
-      const queryWeather = async (lat, lon, cityName = 'Твоє місто') => {
+      const fallbackLat = 54.8985; // Каунас за замовчуванням
+      const fallbackLon = 23.9036;
+
+      const queryWeather = async (lat, lon, cityName = 'Каунас') => {
         const locEl = document.getElementById('w-location');
         if (locEl) locEl.innerText = cityName;
 
+        // Встановлюємо таймаут, щоб запит не зависав вічно
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
         try {
           const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${OW_API_KEY}&lang=uk&_t=${Date.now()}`;
-          const res = await fetch(url);
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timeoutId);
+
           if (res.ok) {
             const data = await res.json();
             realFetchedWeatherData = data;
             renderSmartWeather(data);
+          } else {
+            throw new Error('API error');
           }
         } catch (e) {
-          applyDynamicAtmosphere(800);
+          // Якщо сталася помилка чи CORS — беремо базовий дефолтний стан (наприклад, +18°C ясно)
+          renderSmartWeather({
+            main: { temp: 18, feels_like: 18 },
+            weather: [{ id: 800, description: 'ясно' }]
+          });
         }
       };
 
+      // Пробуємо отримати геолокацію з обмеженням часу (4 секунди)
       if (navigator.geolocation) {
+        let locationResolved = false;
+        
         navigator.geolocation.getCurrentPosition(
-          pos => queryWeather(pos.coords.latitude.toFixed(4), pos.coords.longitude.toFixed(4), 'Поточна локація'),
-          async () => {
-            try {
-              const ipRes = await fetch('https://ipapi.co/json/', { cache: 'no-store' });
-              if (ipRes.ok) {
-                const ipData = await ipRes.json();
-                queryWeather(ipData.latitude, ipData.longitude, ipData.city || 'Каунас');
-                return;
-              }
-            } catch(err) {}
-            queryWeather(54.8985, 23.9036, 'Каунас');
+          pos => {
+            if (!locationResolved) {
+              locationResolved = true;
+              queryWeather(pos.coords.latitude.toFixed(4), pos.coords.longitude.toFixed(4), 'Поточна локація');
+            }
           },
-          { timeout: 7000, enableHighAccuracy: true, maximumAge: 0 }
+          () => {
+            if (!locationResolved) {
+              locationResolved = true;
+              queryWeather(fallbackLat, fallbackLon, 'Каунас');
+            }
+          },
+          { timeout: 4000, enableHighAccuracy: false, maximumAge: 60000 }
         );
+
+        // Захисний таймер: якщо геолокація думає довше 4.5 секунд — одразу йдемо по дефолту
+        setTimeout(() => {
+          if (!locationResolved) {
+            locationResolved = true;
+            queryWeather(fallbackLat, fallbackLon, 'Каунас');
+          }
+        }, 4500);
+
       } else {
-        queryWeather(54.8985, 23.9036, 'Каунас');
+        queryWeather(fallbackLat, fallbackLon, 'Каунас');
       }
     }
 
