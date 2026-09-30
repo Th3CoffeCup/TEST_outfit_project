@@ -1984,7 +1984,12 @@
         tempEl.innerHTML = `${realTemp}°C <span style="font-size:14px; font-weight:600; opacity:0.75;">(відчувається як ${feelsLike}°C)</span>`;
       }
 
-      const weatherId = debugWeatherOverride ? (debugWeatherOverride === 'rain' ? 500 : (debugWeatherOverride === 'snow' ? 600 : (debugWeatherOverride === 'cloudy' ? 803 : 800))) : data.weather[0].id;
+      // Пріоритет: якщо є ручний дебаг-оверрайд погоди — беремо його, інакше чітко беремо дані від OpenWeatherMap
+      let weatherId = data.weather[0].id;
+      if (debugWeatherOverride) {
+        weatherId = debugWeatherOverride === 'rain' ? 500 : (debugWeatherOverride === 'snow' ? 600 : (debugWeatherOverride === 'cloudy' ? 803 : 800));
+      }
+
       applyDynamicAtmosphere(weatherId);
 
       let weatherDesc = data.weather[0].description || 'Ясно';
