@@ -243,6 +243,32 @@
       z-index: 2;
     }
 
+    /* ДЕБАГ ПАНЕЛЬ */
+    .debug-float-panel {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--glass-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border-top);
+      padding: 10px 14px;
+      border-radius: 20px;
+      z-index: 999;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .debug-select {
+      background: rgba(255,255,255,0.7);
+      border: 1px solid #ccc;
+      padding: 4px 6px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
     #app {
       width: 100%;
       max-width: 460px;
@@ -919,6 +945,33 @@
 
   <canvas id="fx-canvas"></canvas>
 
+  <!-- ДЕБАГ ПАНЕЛЬ ДЛЯ ТЕСТУВАННЯ -->
+  <div class="debug-float-panel">
+    <span style="font-size:10px; font-weight:800; text-transform:uppercase;">🧪</span>
+    <select class="debug-select" id="debug-time-select" onchange="overrideTime(this.value)" title="Час">
+      <option value="auto">⏳ Час</option>
+      <option value="9">🌅 Ранок (09)</option>
+      <option value="13">☀️ День (13)</option>
+      <option value="17">🌇 Полудень (17)</option>
+      <option value="22">🌙 Ніч (22)</option>
+    </select>
+    <select class="debug-select" id="debug-weather-select" onchange="overrideWeather(this.value)" title="Погода">
+      <option value="auto">🌤 Погода</option>
+      <option value="clear">☀️ Ясно</option>
+      <option value="cloudy">☁️ Похмуро</option>
+      <option value="rain">🌧️ Дощ</option>
+      <option value="snow">❄️ Сніг</option>
+    </select>
+    <select class="debug-select" id="debug-temp-select" onchange="overrideTemp(this.value)" title="Температура">
+      <option value="auto">🌡️ Авто</option>
+      <option value="22">+22°C</option>
+      <option value="16">+16°C</option>
+      <option value="10">+10°C</option>
+      <option value="0">0°C</option>
+      <option value="-5">-5°C</option>
+    </select>
+  </div>
+
   <div id="app">
     <!-- 1. ГОЛОВНИЙ ЕКРАН -->
     <section id="screen-home" class="screen active">
@@ -1093,7 +1146,7 @@
           <h2>Який кольоровий настрій?</h2>
           <div style="display:flex; flex-direction:column; gap:12px; margin-top:20px;">
             <button class="btn btn-secondary interactive-press" onclick="delayedNavigate(this, () => answerQuiz('palette', 'dark'))">🖤 Темний / монохром</button>
-            <button class="btn btn-secondary interactive-press" onclick="delayedNavigate(this, () => answerQuiz('palette', 'bright'))">❤️️ Яскравий акцент</button>
+            <button class="btn btn-secondary interactive-press" onclick="delayedNavigate(this, () => answerQuiz('palette', 'bright'))">❤️ Яскравий акцент</button>
             <button class="btn btn-secondary interactive-press" onclick="delayedNavigate(this, () => answerQuiz('palette', 'pastel'))">🌸 Пастельний (Беж / Світлий)</button>
             <button class="btn btn-secondary interactive-press" onclick="delayedNavigate(this, () => answerQuiz('palette', 'surprise'))">🎲 Здивуй мене (Рандом)</button>
           </div>
@@ -1284,7 +1337,7 @@
       { name: 'Бордовий', hex: '#831843', isLight: false },
       { name: 'Рожевий', hex: '#f472b6', isLight: true },
       { name: 'Хакі / Олива', hex: '#556b2f', isLight: false },
-      { name: 'Зелений', hex: '#15803d', isLight: false },
+      { name: 'Зелений', hex: '#15803d', isLight: true },
       { name: 'Срібний', hex: '#cbd5e1', isLight: true },
       { name: 'Жовтий', hex: '#facc15', isLight: true },
       { name: 'Помаранчевий', hex: '#ea580c', isLight: false },
@@ -1322,6 +1375,9 @@
     let currentlyViewedItemId = null;
     let isSmartSortedMode = false;
 
+    let debugTimeOverride = null;
+    let debugWeatherOverride = null;
+    let debugTempOverride = null;
     let realFetchedWeatherData = null;
 
     // Анімація часток (дощ / сніг)
@@ -1388,7 +1444,37 @@
     }
     updateParticles();
 
+    function overrideTime(val) {
+      debugTimeOverride = val === 'auto' ? null : parseInt(val, 10);
+      applyDynamicAtmosphere(0);
+    }
+
+    function overrideWeather(val) {
+      debugWeatherOverride = val === 'auto' ? null : val;
+      if (debugWeatherOverride) {
+        currentWeatherType = debugWeatherOverride === 'rain' ? 'rain' : (debugWeatherOverride === 'snow' ? 'snow' : (debugWeatherOverride === 'cloudy' ? 'cloudy' : 'clear'));
+        initParticles(currentWeatherType);
+        setAtmosphereWithCrossfade(getCurrentTimeClass(), `weather-${debugWeatherOverride}`, getCurrentTimeLabel(), getWeatherLabelName(debugWeatherOverride));
+        if (realFetchedWeatherData) renderSmartWeather(realFetchedWeatherData);
+      } else {
+        initWeatherOnLoad();
+      }
+    }
+
+    function overrideTemp(val) {
+      debugTempOverride = val === 'auto' ? null : parseInt(val, 10);
+      if (realFetchedWeatherData) renderSmartWeather(realFetchedWeatherData);
+    }
+
+    function getWeatherLabelName(type) {
+      if (type === 'rain') return 'Дощить';
+      if (type === 'snow') return 'Сніжить';
+      if (type === 'cloudy') return 'Похмуро';
+      return 'Ясно';
+    }
+
     function getCurrentHour() {
+      if (debugTimeOverride !== null) return debugTimeOverride;
       return new Date().getHours();
     }
 
@@ -1695,15 +1781,21 @@
       let weatherLabel = 'Ясно';
       currentWeatherType = 'clear';
 
-      if (weatherId >= 200 && weatherId < 600) {
-        weatherClass = 'weather-rain'; weatherLabel = 'Дощить';
-        currentWeatherType = 'rain';
-      } else if (weatherId >= 600 && weatherId < 700) {
-        weatherClass = 'weather-snow'; weatherLabel = 'Сніжить';
-        currentWeatherType = 'snow';
-      } else if (weatherId > 800) {
-        weatherClass = 'weather-cloudy'; weatherLabel = 'Похмуро';
-        currentWeatherType = 'cloudy';
+      if (debugWeatherOverride) {
+        weatherClass = `weather-${debugWeatherOverride}`;
+        currentWeatherType = debugWeatherOverride;
+        weatherLabel = getWeatherLabelName(debugWeatherOverride);
+      } else {
+        if (weatherId >= 200 && weatherId < 600) {
+          weatherClass = 'weather-rain'; weatherLabel = 'Дощить';
+          currentWeatherType = 'rain';
+        } else if (weatherId >= 600 && weatherId < 700) {
+          weatherClass = 'weather-snow'; weatherLabel = 'Сніжить';
+          currentWeatherType = 'snow';
+        } else if (weatherId > 800) {
+          weatherClass = 'weather-cloudy'; weatherLabel = 'Похмуро';
+          currentWeatherType = 'cloudy';
+        }
       }
 
       initParticles(currentWeatherType);
@@ -1879,8 +1971,8 @@
       const insightsEl = document.getElementById('w-insights');
 
       const currentHour = getCurrentHour();
-      const realTemp = Math.round(data.main.temp);
-      const feelsLike = Math.round(data.main.feels_like);
+      const realTemp = debugTempOverride !== null ? debugTempOverride : Math.round(data.main.temp);
+      const feelsLike = debugTempOverride !== null ? debugTempOverride : Math.round(data.main.feels_like);
       currentOutdoorTemp = realTemp;
 
       if (tempEl) {
@@ -1888,6 +1980,10 @@
       }
 
       let weatherId = data.weather[0].id;
+      if (debugWeatherOverride) {
+        weatherId = debugWeatherOverride === 'rain' ? 500 : (debugWeatherOverride === 'snow' ? 600 : (debugWeatherOverride === 'cloudy' ? 803 : 800));
+      }
+
       applyDynamicAtmosphere(weatherId);
 
       let weatherDesc = data.weather[0].description || 'Ясно';
@@ -2018,6 +2114,7 @@
       const p = quizAnswers.palette;
       const isSurprise = (p === 'surprise');
 
+      // ЖОРСТКА ПЕРЕВІРКА ВИБОРУ ТЕПЛОГО ШАРУ ДІАНИ
       let pickLayer = null;
       const userWantsLayer = quizAnswers.layer === 'layer_needed';
       const isActuallyCold = currentOutdoorTemp < 10;
