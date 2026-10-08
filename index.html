@@ -181,7 +181,7 @@
 
     html, body {
       background-color: #FAF5F0;
-      overscroll-behavior-x: none;
+      overscroll-behavior-x: none; /* Забороняє браузеру виходити з сайту при свайпі назад */
     }
 
     body {
@@ -1345,6 +1345,27 @@
       { name: 'Фіолетовий', hex: '#7e22ce', isLight: false }
     ];
 
+    // Єдиний та об'єднаний слухач історії свайпів і браузера
+    window.addEventListener('popstate', (event) => {
+      if (event.state) {
+        if (event.state.screenId === 'screen-quiz' && event.state.quizStep) {
+          document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+          document.getElementById('screen-quiz').classList.add('active');
+          showQuizStep(event.state.quizStep, false);
+        } else if (event.state.screenId) {
+          document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+          const targetScreen = document.getElementById(event.state.screenId);
+          if (targetScreen) {
+            targetScreen.classList.add('active');
+            window.scrollTo(0, 0);
+            updateCounts();
+          }
+        }
+      } else {
+        goToScreen('screen-home', false);
+      }
+    });
+
     let wardrobe = [];
     let customLocalItems = JSON.parse(localStorage.getItem('my_local_added_items')) || [];
     let favorites = JSON.parse(localStorage.getItem('outfit_favorites')) || [];
@@ -1894,12 +1915,16 @@
       document.getElementById('total-items-count').innerText = wardrobe.length;
     }
 
-    function goToScreen(screenId) {
+    function goToScreen(screenId, pushHistory = true) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       const nextScreen = document.getElementById(screenId);
-      nextScreen.classList.add('active');
+      if (nextScreen) nextScreen.classList.add('active');
       window.scrollTo(0, 0);
       updateCounts();
+
+      if (pushHistory) {
+        history.pushState({ screenId: screenId }, '', '#' + screenId);
+      }
     }
 
     /* ПОГОДА ВІД OPENWEATHERMAP З ЗАХИСТОМ ВІД ЗАВИСАНЬ */
@@ -2031,21 +2056,27 @@
       quizAnswers = {};
       currentQuizStep = 1;
       showQuizStep(1);
-      goToScreen('screen-quiz');
+      
+      history.pushState({ screenId: 'screen-quiz', quizStep: 1 }, '', '#quiz-step-1');
+      goToScreen('screen-quiz', false);
     }
 
-    function showQuizStep(step) {
+    function showQuizStep(step, pushToHistory = true) {
       currentQuizStep = step;
       document.getElementById('q-step-1').style.display = step === 1 ? 'block' : 'none';
       document.getElementById('q-step-2').style.display = step === 2 ? 'block' : 'none';
       document.getElementById('q-step-3').style.display = step === 3 ? 'block' : 'none';
+      
+      if (pushToHistory) {
+        history.pushState({ screenId: 'screen-quiz', quizStep: step }, '', '#quiz-step-' + step);
+      }
     }
 
     function handleQuizBack() {
-      if (currentQuizStep === 1) {
-        goToScreen('screen-home');
+      if (currentQuizStep > 1) {
+        showQuizStep(currentQuizStep - 1, true);
       } else {
-        showQuizStep(currentQuizStep - 1);
+        history.back();
       }
     }
 
@@ -2671,6 +2702,11 @@
         if (activeCategoryFilter === 'bottom') return ['bottom', 'bottom_pants', 'bottom_light'].includes(item.category);
         return item.category === activeCategoryFilter;
       });
+
+      // Виправлено: додано фільтрацію за кольором
+      if (activeColorFilter !== 'all') {
+        list = list.filter(item => item.color === activeColorFilter);
+      }
 
       if (smartFilters.favs) list = list.filter(item => favoriteItemIds.includes(item.id));
       if (smartFilters.ready) list = list.filter(item => !getItemCooldownStatus(item.id).inCooldown);
