@@ -2456,9 +2456,7 @@
 
     let isSavingItem = false;
 
-    function saveItem() {
-      if (isSavingItem) return;
-      
+   function saveItem() {
       const id = document.getElementById('edit-item-id').value;
       const name = document.getElementById('item-title-input').value.trim();
       const cat = document.getElementById('item-cat-input').value;
@@ -2474,30 +2472,20 @@
         return;
       }
 
-      isSavingItem = true;
       let image = currentUploadBase64 || url || 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=400&q=80';
 
       if (id) {
-        // Редагування існуючої речі
         const index = wardrobe.findIndex(i => i.id === id);
         if (index !== -1) {
-          wardrobe[index].name = name;
-          wardrobe[index].category = cat;
-          wardrobe[index].color = color;
-          wardrobe[index].colorHex = colorHex;
-          wardrobe[index].sleeve = sleeve;
-          wardrobe[index].layerType = layerType;
-          if (image) wardrobe[index].image = image;
+          wardrobe[index] = { ...wardrobe[index], name, category: cat, color, colorHex, sleeve, layerType, image };
         }
         const localIdx = customLocalItems.findIndex(i => i.id === id);
         if (localIdx !== -1) {
           customLocalItems[localIdx] = { ...wardrobe[index] };
         } else {
-          // Якщо раптом її не було в локальних, але вона редагується
           customLocalItems.unshift({ ...wardrobe[index] });
         }
       } else {
-        // Додавання нової речі
         const newItem = {
           id: 'item-' + Date.now(),
           name: name,
@@ -2512,16 +2500,17 @@
         customLocalItems.unshift(newItem);
       }
 
-      // Обов'язково зберігаємо в localStorage
+      // Зберігаємо в локальне сховище
       localStorage.setItem('my_local_added_items', JSON.stringify(customLocalItems));
 
-      closeAddEditModal();
+      // Примусово закриваємо модалку (навіть якщо клас не знімався)
+      document.getElementById('add-modal').classList.remove('active');
+      
+      // Оновлюємо інтерфейс
+      updateCounts();
       buildColorFilters();
       renderManagerGrid();
       renderWardrobe();
-      updateCounts();
-      
-      setTimeout(() => { isSavingItem = false; }, 300);
     }
 
     function goToWardrobeManager() {
