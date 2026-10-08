@@ -1287,7 +1287,7 @@
     </div>
   </div>
 
-  <!-- МОДАЛКА ДОДАВАННЯ/РЕДАГУВАННЯ З ОБРІЗКОЮ 1:1 ТА ПОВОРОТОМ -->
+  <!-- МОДАЛКА ДОДАВАННЯ/РЕДАГУВАННЯ З ОБРІЗКОЮ 1:1, ПОВОРОТОМ ТА ПОСИЛАННЯМ -->
   <div class="modal" id="add-modal">
     <div class="modal-sheet">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -1302,6 +1302,11 @@
       <div class="form-group">
         <label>Фото (Галерея або Камера)</label>
         <input type="file" id="item-file-input" accept="image/*" class="form-control" onchange="handleImageUpload(this)" />
+      </div>
+
+      <div class="form-group">
+        <label>Або посилання на фото</label>
+        <input type="url" id="item-url-input" class="form-control" placeholder="https://..." onchange="handleUrlInput(this.value)" />
       </div>
 
       <div id="img-preview-box" style="display:none; margin-bottom:14px; text-align:center;">
@@ -1348,7 +1353,7 @@
 
   <script>
     const OW_API_KEY = 'b4d529b97aa48a1bc650ca844ea6a0ce';
-    const CORRECT_PIN = '1995'; // Пін-код для Діани (можеш змінити тут за бажанням)
+    const CORRECT_PIN = '1995';
 
     function checkPin() {
       const val = document.getElementById('pin-input').value.trim();
@@ -1360,7 +1365,6 @@
       }
     }
 
-    // Перевірка при завантаженні: якщо вже вводила — одразу пускаємо
     window.addEventListener('DOMContentLoaded', () => {
       if (localStorage.getItem('atelier_auth_ok') === 'true') {
         document.getElementById('pin-screen').classList.add('hidden');
@@ -2406,10 +2410,12 @@
       const nameField = document.getElementById('item-title-input');
       const catField = document.getElementById('item-cat-input');
       const fileField = document.getElementById('item-file-input');
+      const urlField = document.getElementById('item-url-input');
       const previewBox = document.getElementById('img-preview-box');
       const previewImg = document.getElementById('img-preview');
 
       fileField.value = '';
+      urlField.value = '';
       currentUploadBase64 = null;
       rawImageObj = null;
       currentRotationAngle = 0;
@@ -2424,6 +2430,9 @@
         currentUploadBase64 = item.image;
         previewImg.src = item.image;
         previewBox.style.display = 'block';
+        if (!item.image.startsWith('data:')) {
+          urlField.value = item.image;
+        }
 
         document.getElementById('item-sleeve-attr').value = item.sleeve || 'short';
         document.getElementById('item-layer-type-attr').value = item.layerType || 'open';
@@ -2445,9 +2454,9 @@
       document.getElementById('add-modal').classList.remove('active');
     }
 
-    // Обробка завантаження фотографії з обрізкою 1:1 (центрування квадрата)
     function handleImageUpload(input) {
       if (input.files && input.files[0]) {
+        document.getElementById('item-url-input').value = ''; // Очищаємо посилання якщо обрано файл
         const reader = new FileReader();
         reader.onload = function(e) {
           const img = new Image();
@@ -2462,6 +2471,15 @@
       }
     }
 
+    function handleUrlInput(val) {
+      if (!val) return;
+      document.getElementById('item-file-input').value = ''; // Очищаємо файл якщо введено посилання
+      currentUploadBase64 = val;
+      const previewImg = document.getElementById('img-preview');
+      previewImg.src = val;
+      document.getElementById('img-preview-box').style.display = 'block';
+    }
+
     function rotateImage() {
       if (!rawImageObj) return;
       currentRotationAngle = (currentRotationAngle + 90) % 360;
@@ -2472,7 +2490,7 @@
       if (!rawImageObj) return;
 
       const canvas = document.createElement('canvas');
-      const TARGET_SIZE = 400; // Розмір гарного квадрата
+      const TARGET_SIZE = 400;
       canvas.width = TARGET_SIZE;
       canvas.height = TARGET_SIZE;
       const ctx = canvas.getContext('2d');
@@ -2487,11 +2505,7 @@
         let temp = imgW; imgW = imgH; imgH = temp;
       }
 
-      // Кадрування 1:1 по центру
       let sourceSize = Math.min(imgW, imgH);
-      let sx = (imgW - sourceSize) / 2;
-      let sy = (imgH - sourceSize) / 2;
-
       let unRotW = rawImageObj.width;
       let unRotH = rawImageObj.height;
       let unRotSource = Math.min(unRotW, unRotH);
@@ -2505,7 +2519,6 @@
       );
       ctx.restore();
 
-      // Стискаємо до легкого JPEG
       currentUploadBase64 = canvas.toDataURL('image/jpeg', 0.8);
       const previewImg = document.getElementById('img-preview');
       previewImg.src = currentUploadBase64;
@@ -2553,6 +2566,7 @@
       const cat = document.getElementById('item-cat-input').value;
       const color = document.getElementById('selected-color-val').value;
       const colorHex = document.getElementById('selected-color-hex').value;
+      const urlInput = document.getElementById('item-url-input').value.trim();
 
       const sleeve = document.getElementById('item-sleeve-attr').value;
       const layerType = document.getElementById('item-layer-type-attr').value;
@@ -2563,7 +2577,7 @@
       }
 
       isSavingItem = true;
-      let image = currentUploadBase64 || 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=400&q=80';
+      let image = urlInput || currentUploadBase64 || 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=400&q=80';
 
       if (id) {
         const index = wardrobe.findIndex(i => i.id === id);
