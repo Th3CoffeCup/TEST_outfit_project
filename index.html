@@ -181,6 +181,7 @@
 
     html, body {
       background-color: #FAF5F0;
+      overscroll-behavior-x: none;
     }
 
     body {
@@ -2422,7 +2423,11 @@
       selectPaletteColor('Власний відтінок', hex);
     }
 
+    let isSavingItem = false;
+
     function saveItem() {
+      if (isSavingItem) return;
+      
       const id = document.getElementById('edit-item-id').value;
       const name = document.getElementById('item-title-input').value.trim();
       const cat = document.getElementById('item-cat-input').value;
@@ -2438,6 +2443,7 @@
         return;
       }
 
+      isSavingItem = true;
       let image = currentUploadBase64 || url || 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=400&q=80';
 
       if (id) {
@@ -2474,6 +2480,8 @@
       buildColorFilters();
       renderWardrobe();
       updateCounts();
+      
+      setTimeout(() => { isSavingItem = false; }, 400);
     }
 
     function goToWardrobeManager() {
