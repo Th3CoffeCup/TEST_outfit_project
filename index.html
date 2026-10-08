@@ -181,7 +181,7 @@
 
     html, body {
       background-color: #FAF5F0;
-      overscroll-behavior-x: none; /* Забороняє браузеру виходити з сайту при свайпі назад */
+      overscroll-behavior-x: none;
     }
 
     body {
@@ -243,6 +243,21 @@
       pointer-events: none;
       z-index: 2;
     }
+
+    /* ЕКРАН ПІН-КОДУ ДЛЯ ДІАНИ */
+    #pin-screen {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: #FAF5F0;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    #pin-screen.hidden { display: none; }
 
     /* ДЕБАГ ПАНЕЛЬ */
     .debug-float-panel {
@@ -936,6 +951,17 @@
 </head>
 <body class="theme-day weather-clear">
 
+  <!-- ПІН-КОД ДЛЯ ЗАХИСТУ ВІД ЧУЖИХ -->
+  <div id="pin-screen">
+    <div style="font-size: 40px; margin-bottom: 16px;">✨</div>
+    <h2>Atelier Studio</h2>
+    <p style="margin-bottom: 24px;">Введи персональний пін-код для доступу:</p>
+    <div style="width: 100%; max-width: 280px; display: flex; flex-direction: column; gap: 12px;">
+      <input type="password" id="pin-input" class="form-control" style="text-align: center; font-size: 22px; letter-spacing: 6px;" placeholder="••••" maxlength="6" />
+      <button class="btn btn-primary" onclick="checkPin()">Увійти ✨</button>
+    </div>
+  </div>
+
   <div id="bg-layer-base" class="bg-crossfade-layer"></div>
   <div id="bg-layer-fade" class="bg-crossfade-layer"></div>
 
@@ -1261,7 +1287,7 @@
     </div>
   </div>
 
-  <!-- МОДАЛКА ДОДАВАННЯ/РЕДАГУВАННЯ -->
+  <!-- МОДАЛКА ДОДАВАННЯ/РЕДАГУВАННЯ З ОБРІЗКОЮ 1:1 ТА ПОВОРОТОМ -->
   <div class="modal" id="add-modal">
     <div class="modal-sheet">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -1278,13 +1304,12 @@
         <input type="file" id="item-file-input" accept="image/*" class="form-control" onchange="handleImageUpload(this)" />
       </div>
 
-      <div class="form-group">
-        <label>Або посилання на фото</label>
-        <input type="url" id="item-url-input" class="form-control" placeholder="https://..." onchange="handleUrlInput(this.value)" />
-      </div>
-
       <div id="img-preview-box" style="display:none; margin-bottom:14px; text-align:center;">
-        <img id="img-preview" src="" style="width:96px; height:96px; border-radius:18px; object-fit:cover; border:2px solid #E2D7CF; box-shadow:0 4px 14px rgba(0,0,0,0.08);" />
+        <div style="position:relative; display:inline-block;">
+          <img id="img-preview" src="" style="width:140px; height:140px; border-radius:18px; object-fit:cover; border:2px solid #E2D7CF; box-shadow:0 4px 14px rgba(0,0,0,0.08);" />
+          <button type="button" class="btn btn-secondary" style="position:absolute; bottom:8px; right:8px; padding:6px 10px; font-size:12px; border-radius:10px;" onclick="rotateImage()">🔄 Повернути</button>
+        </div>
+        <p style="font-size:11.5px; color:#7D564C; margin-top:6px;">Фото автоматично кадрується 1:1</p>
       </div>
 
       <div class="form-group">
@@ -1323,6 +1348,24 @@
 
   <script>
     const OW_API_KEY = 'b4d529b97aa48a1bc650ca844ea6a0ce';
+    const CORRECT_PIN = '1995'; // Пін-код для Діани (можеш змінити тут за бажанням)
+
+    function checkPin() {
+      const val = document.getElementById('pin-input').value.trim();
+      if (val === CORRECT_PIN) {
+        localStorage.setItem('atelier_auth_ok', 'true');
+        document.getElementById('pin-screen').classList.add('hidden');
+      } else {
+        alert('Невірний пін-код ✨');
+      }
+    }
+
+    // Перевірка при завантаженні: якщо вже вводила — одразу пускаємо
+    window.addEventListener('DOMContentLoaded', () => {
+      if (localStorage.getItem('atelier_auth_ok') === 'true') {
+        document.getElementById('pin-screen').classList.add('hidden');
+      }
+    });
 
     const PALETTE = [
       { name: 'Чорний', hex: '#1c1b1a', isLight: false },
@@ -1345,7 +1388,6 @@
       { name: 'Фіолетовий', hex: '#7e22ce', isLight: false }
     ];
 
-    // Єдиний та об'єднаний слухач історії свайпів і браузера
     window.addEventListener('popstate', (event) => {
       if (event.state) {
         if (event.state.screenId === 'screen-quiz' && event.state.quizStep) {
@@ -1385,6 +1427,9 @@
     let activeColorFilter = 'all';
     let managerFilter = 'all';
     let currentUploadBase64 = null;
+    let rawImageObj = null;
+    let currentRotationAngle = 0;
+
     let quizAnswers = {};
     let currentQuizStep = 1;
     let currentOutdoorTemp = 18;
@@ -1402,7 +1447,6 @@
     let debugTempOverride = null;
     let realFetchedWeatherData = null;
 
-    // Анімація часток (дощ / сніг)
     const canvas = document.getElementById('fx-canvas');
     const ctx = canvas.getContext('2d');
     let particles = [];
@@ -1927,7 +1971,6 @@
       }
     }
 
-    /* ПОГОДА ВІД OPENWEATHERMAP З ЗАХИСТОМ ВІД ЗАВИСАНЬ */
     async function initWeatherOnLoad() {
       const fallbackLat = 54.8985;
       const fallbackLon = 23.9036;
@@ -2146,7 +2189,6 @@
       const p = quizAnswers.palette;
       const isSurprise = (p === 'surprise');
 
-      // ЖОРСТКА ПЕРЕВІРКА ВИБОРУ ТЕПЛОГО ШАРУ ДІАНИ
       let pickLayer = null;
       const userWantsLayer = quizAnswers.layer === 'layer_needed';
       const isActuallyCold = currentOutdoorTemp < 10;
@@ -2363,13 +2405,14 @@
       const idField = document.getElementById('edit-item-id');
       const nameField = document.getElementById('item-title-input');
       const catField = document.getElementById('item-cat-input');
-      const urlField = document.getElementById('item-url-input');
       const fileField = document.getElementById('item-file-input');
       const previewBox = document.getElementById('img-preview-box');
       const previewImg = document.getElementById('img-preview');
 
       fileField.value = '';
       currentUploadBase64 = null;
+      rawImageObj = null;
+      currentRotationAngle = 0;
 
       if (itemId) {
         const item = wardrobe.find(i => i.id === itemId);
@@ -2377,8 +2420,8 @@
         idField.value = item.id;
         nameField.value = item.name;
         catField.value = ['bottom_pants', 'bottom_light'].includes(item.category) ? 'bottom' : item.category;
-        urlField.value = item.image.startsWith('data:') ? '' : item.image;
         selectPaletteColor(item.color, item.colorHex || '#1c1b1a');
+        currentUploadBase64 = item.image;
         previewImg.src = item.image;
         previewBox.style.display = 'block';
 
@@ -2390,7 +2433,6 @@
         idField.value = '';
         nameField.value = '';
         catField.value = 'top';
-        urlField.value = '';
         selectPaletteColor('Чорний', '#1c1b1a');
         previewBox.style.display = 'none';
         document.getElementById('attribute-pills-box').style.display = 'none';
@@ -2403,23 +2445,70 @@
       document.getElementById('add-modal').classList.remove('active');
     }
 
+    // Обробка завантаження фотографії з обрізкою 1:1 (центрування квадрата)
     function handleImageUpload(input) {
       if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
-          currentUploadBase64 = e.target.result;
-          const previewImg = document.getElementById('img-preview');
-          previewImg.src = currentUploadBase64;
-          document.getElementById('img-preview-box').style.display = 'block';
+          const img = new Image();
+          img.onload = function() {
+            rawImageObj = img;
+            currentRotationAngle = 0;
+            processAndPreviewCroppedImage();
+          };
+          img.src = e.target.result;
         };
         reader.readAsDataURL(input.files[0]);
       }
     }
 
-    function handleUrlInput(val) {
-      if (!val) return;
+    function rotateImage() {
+      if (!rawImageObj) return;
+      currentRotationAngle = (currentRotationAngle + 90) % 360;
+      processAndPreviewCroppedImage();
+    }
+
+    function processAndPreviewCroppedImage() {
+      if (!rawImageObj) return;
+
+      const canvas = document.createElement('canvas');
+      const TARGET_SIZE = 400; // Розмір гарного квадрата
+      canvas.width = TARGET_SIZE;
+      canvas.height = TARGET_SIZE;
+      const ctx = canvas.getContext('2d');
+
+      ctx.save();
+      ctx.translate(TARGET_SIZE / 2, TARGET_SIZE / 2);
+      ctx.rotate((currentRotationAngle * Math.PI) / 180);
+
+      let imgW = rawImageObj.width;
+      let imgH = rawImageObj.height;
+      if (currentRotationAngle === 90 || currentRotationAngle === 270) {
+        let temp = imgW; imgW = imgH; imgH = temp;
+      }
+
+      // Кадрування 1:1 по центру
+      let sourceSize = Math.min(imgW, imgH);
+      let sx = (imgW - sourceSize) / 2;
+      let sy = (imgH - sourceSize) / 2;
+
+      let unRotW = rawImageObj.width;
+      let unRotH = rawImageObj.height;
+      let unRotSource = Math.min(unRotW, unRotH);
+      let usx = (unRotW - unRotSource) / 2;
+      let usy = (unRotH - unRotSource) / 2;
+
+      ctx.drawImage(
+        rawImageObj,
+        usx, usy, unRotSource, unRotSource,
+        -TARGET_SIZE / 2, -TARGET_SIZE / 2, TARGET_SIZE, TARGET_SIZE
+      );
+      ctx.restore();
+
+      // Стискаємо до легкого JPEG
+      currentUploadBase64 = canvas.toDataURL('image/jpeg', 0.8);
       const previewImg = document.getElementById('img-preview');
-      previewImg.src = val;
+      previewImg.src = currentUploadBase64;
       document.getElementById('img-preview-box').style.display = 'block';
     }
 
@@ -2456,13 +2545,14 @@
 
     let isSavingItem = false;
 
-   function saveItem() {
+    function saveItem() {
+      if (isSavingItem) return;
+      
       const id = document.getElementById('edit-item-id').value;
       const name = document.getElementById('item-title-input').value.trim();
       const cat = document.getElementById('item-cat-input').value;
       const color = document.getElementById('selected-color-val').value;
       const colorHex = document.getElementById('selected-color-hex').value;
-      const url = document.getElementById('item-url-input').value.trim();
 
       const sleeve = document.getElementById('item-sleeve-attr').value;
       const layerType = document.getElementById('item-layer-type-attr').value;
@@ -2472,7 +2562,8 @@
         return;
       }
 
-      let image = currentUploadBase64 || url || 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=400&q=80';
+      isSavingItem = true;
+      let image = currentUploadBase64 || 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=400&q=80';
 
       if (id) {
         const index = wardrobe.findIndex(i => i.id === id);
@@ -2500,17 +2591,15 @@
         customLocalItems.unshift(newItem);
       }
 
-      // Зберігаємо в локальне сховище
       localStorage.setItem('my_local_added_items', JSON.stringify(customLocalItems));
 
-      // Примусово закриваємо модалку (навіть якщо клас не знімався)
       document.getElementById('add-modal').classList.remove('active');
-      
-      // Оновлюємо інтерфейс
       updateCounts();
       buildColorFilters();
       renderManagerGrid();
       renderWardrobe();
+      
+      setTimeout(() => { isSavingItem = false; }, 300);
     }
 
     function goToWardrobeManager() {
@@ -2701,7 +2790,6 @@
         return item.category === activeCategoryFilter;
       });
 
-      // Виправлено: додано фільтрацію за кольором
       if (activeColorFilter !== 'all') {
         list = list.filter(item => item.color === activeColorFilter);
       }
