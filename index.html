@@ -2478,6 +2478,7 @@
       let image = currentUploadBase64 || url || 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=400&q=80';
 
       if (id) {
+        // Редагування існуючої речі
         const index = wardrobe.findIndex(i => i.id === id);
         if (index !== -1) {
           wardrobe[index].name = name;
@@ -2489,8 +2490,14 @@
           if (image) wardrobe[index].image = image;
         }
         const localIdx = customLocalItems.findIndex(i => i.id === id);
-        if (localIdx !== -1) customLocalItems[localIdx] = wardrobe[index];
+        if (localIdx !== -1) {
+          customLocalItems[localIdx] = { ...wardrobe[index] };
+        } else {
+          // Якщо раптом її не було в локальних, але вона редагується
+          customLocalItems.unshift({ ...wardrobe[index] });
+        }
       } else {
+        // Додавання нової речі
         const newItem = {
           id: 'item-' + Date.now(),
           name: name,
@@ -2505,14 +2512,16 @@
         customLocalItems.unshift(newItem);
       }
 
+      // Обов'язково зберігаємо в localStorage
       localStorage.setItem('my_local_added_items', JSON.stringify(customLocalItems));
+
       closeAddEditModal();
-      renderManagerGrid();
       buildColorFilters();
+      renderManagerGrid();
       renderWardrobe();
       updateCounts();
       
-      setTimeout(() => { isSavingItem = false; }, 400);
+      setTimeout(() => { isSavingItem = false; }, 300);
     }
 
     function goToWardrobeManager() {
